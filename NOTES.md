@@ -5,6 +5,14 @@ Last worked on: 2026-07-20
 A soap-bubble battle royale in the browser. Three.js (r152, loaded from CDN), no build
 step — open `index.html` directly, or serve the folder to play on a phone.
 
+**Live:** https://luckey5252-sketch.github.io/battlebubble/ — GitHub Pages, deployed from
+`main` at repo root (no Actions workflow, `build_type: legacy`). Pushing to `main` republishes;
+the build takes ~30s. Repo: `luckey5252-sketch/battlebubble` (public).
+
+For local phone testing on the same wifi instead: `python -m http.server 8000 --bind 0.0.0.0`
+then hit `http://<pc-lan-ip>:8000/`. Windows Firewall already has an inbound Allow rule for
+Python on the Public profile.
+
 ## Files
 
 - `index.html` — HUD, overlays, all CSS, touch-control markup. Claude Code look:
@@ -64,10 +72,15 @@ Lowered several times at the player's request — it was still too hard as of th
 
 - **Playtest the difficulty again** — the last tuning pass hasn't been confirmed as
   playable yet. If still hard, cut `BOT_COUNT` from 9 or raise `PLAYER_GRACE`.
-- **Phone hosting was never set up.** Touch controls exist but the player can't reach the
-  file from a phone. Options discussed: `python -m http.server 8000` on the same wifi, or
-  deploy to GitHub Pages / Netlify.
+- **No landscape / fullscreen handling.** Nothing calls `requestFullscreen()` and there's no
+  orientation prompt. On a phone held portrait the 3D view is very cramped, and iOS Safari's
+  address bar eats vertical space. Worth hooking fullscreen to the DEPLOY button and showing
+  a "rotate to landscape" nudge on `orientation: portrait`.
 - Bots never kneel and don't use cover — they walk straight at you. Could add a duck
   reaction when a bubble is incoming.
-- No git repo here. Worth `git init` if the project keeps growing.
-- Untested on an actual phone/iPad.
+- **Confirmed running on a real phone (2026-07-26)** via the live URL — first time ever.
+  Only the launch is confirmed; how the touch controls actually *feel* (joystick position,
+  button size/reach, framerate) hasn't been reported back yet.
+- Sending the raw `index.html` to a phone does NOT work and never will — the game lives in
+  `game.js`, loaded via a relative `<script src>`, so a lone HTML file renders the start
+  screen and nothing else. Always use the live URL.
