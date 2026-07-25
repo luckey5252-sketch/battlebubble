@@ -1,6 +1,6 @@
 # Battle Bubble — work notes
 
-Last worked on: 2026-07-20
+Last worked on: 2026-07-26
 
 A soap-bubble battle royale in the browser. Three.js (r152, loaded from CDN), no build
 step — open `index.html` directly, or serve the folder to play on a phone.
@@ -9,9 +9,18 @@ step — open `index.html` directly, or serve the folder to play on a phone.
 `main` at repo root (no Actions workflow, `build_type: legacy`). Pushing to `main` republishes;
 the build takes ~30s. Repo: `luckey5252-sketch/battlebubble` (public).
 
-For local phone testing on the same wifi instead: `python -m http.server 8000 --bind 0.0.0.0`
-then hit `http://<pc-lan-ip>:8000/`. Windows Firewall already has an inbound Allow rule for
-Python on the Public profile.
+The site is served by GitHub, not this PC — it stays up with the machine off. A local
+`python -m http.server 8000 --bind 0.0.0.0` also works for same-wifi testing (Windows
+Firewall already allows Python inbound on the Public profile), but it is redundant now
+and was shut down. Note that even offline-ish local serving still needs internet, since
+three.js comes from the jsdelivr CDN.
+
+Sending the raw `index.html` to a phone does NOT work — the game lives in `game.js`,
+pulled in by a relative `<script src>`, so a lone HTML file renders the start screen and
+nothing else. Always use the live URL.
+
+Pages sends `Cache-Control: max-age=600`, so a phone can hold a stale `game.js` for ten
+minutes after a push. Bust it with `?v=2` on the URL or an incognito tab.
 
 ## Files
 
@@ -52,6 +61,17 @@ Python on the Public profile.
 - **Start button kept keyboard focus**, so Space/Enter re-triggered `startGame()` mid-match
   and spawned duplicate characters. Guarded with a `gameState !== 'menu'` check + `blur()`.
 
+## Tried and rejected (don't rebuild these)
+
+- **SCOPE as a touch aim pad** (`eb5a109`, reverted in `648e35f`). Holding the SCOPE button
+  and sliding the *same* thumb to steer the crosshair, so aiming while zoomed didn't need a
+  second thumb on the canvas. It worked technically — a touch keeps targeting the element it
+  started on, so sliding off the 54px button didn't break the drag — but the player tested it
+  on a phone and preferred the original: hold SCOPE, drag the canvas separately. `game.js` is
+  now byte-identical to the pre-attempt version. If scope ergonomics come up again, the thing
+  to question is the zoom depth (FOV 65 → 20) or making SCOPE a toggle like KNEEL, **not**
+  merging aim into the button.
+
 ## Current difficulty tuning
 
 Lowered several times at the player's request — it was still too hard as of the last pass.
@@ -70,17 +90,22 @@ Lowered several times at the player's request — it was still too hard as of th
 
 ## Ideas / open threads for next session
 
-- **Playtest the difficulty again** — the last tuning pass hasn't been confirmed as
-  playable yet. If still hard, cut `BOT_COUNT` from 9 or raise `PLAYER_GRACE`.
+Where things stand: the game is live and confirmed running on a real phone (2026-07-26) —
+first time ever. Only the *launch* is confirmed. Nobody has reported back on how the touch
+controls actually feel, or played enough matches to judge difficulty. Both of the top items
+below are blocked on the same thing: actually playing a few rounds on the phone.
+
+- **Playtest the difficulty.** The tuning table below has been lowered several times and
+  *still* has never been confirmed playable. If it's too hard, cut `BOT_COUNT` from 9 or
+  raise `PLAYER_GRACE`.
+- **Touch control feel is unvalidated.** Joystick position, button size and thumb reach,
+  look-drag sensitivity, framerate. The SCOPE button is 54px, which was already suspected of
+  being small. Needs a real verdict before guessing at changes — the scope aim pad above got
+  built on a guess and thrown away.
 - **No landscape / fullscreen handling.** Nothing calls `requestFullscreen()` and there's no
   orientation prompt. On a phone held portrait the 3D view is very cramped, and iOS Safari's
   address bar eats vertical space. Worth hooking fullscreen to the DEPLOY button and showing
-  a "rotate to landscape" nudge on `orientation: portrait`.
+  a "rotate to landscape" nudge on `orientation: portrait`. This was queued twice and is the
+  most likely next task.
 - Bots never kneel and don't use cover — they walk straight at you. Could add a duck
   reaction when a bubble is incoming.
-- **Confirmed running on a real phone (2026-07-26)** via the live URL — first time ever.
-  Only the launch is confirmed; how the touch controls actually *feel* (joystick position,
-  button size/reach, framerate) hasn't been reported back yet.
-- Sending the raw `index.html` to a phone does NOT work and never will — the game lives in
-  `game.js`, loaded via a relative `<script src>`, so a lone HTML file renders the start
-  screen and nothing else. Always use the live URL.
