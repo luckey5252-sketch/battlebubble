@@ -719,7 +719,7 @@ if(IS_TOUCH){
     '<div><span class="k">JOYSTICK</span> move (steer while dropping)</div>'+
     '<div><span class="k">DRAG SCREEN</span> look around</div>'+
     '<div><span class="k">FIRE</span> hold to auto-fire the bubble gun</div>'+
-    '<div><span class="k">SCOPE</span> hold to zoom, then slide the same thumb to aim</div>'+
+    '<div><span class="k">SCOPE</span> hold to zoom — snipe far enemies</div>'+
     '<div><span class="k">KNEEL</span> tap to kneel — bubbles fly overhead!</div>'+
     '<div><span class="k">KICK</span> pop a trapped enemy up close</div>'+
     '<div><span class="k">JUMP / TAP</span> jump — tap fast to struggle when trapped</div>'+
@@ -761,14 +761,6 @@ if(IS_TOUCH){
 
   /* look: drag anywhere on the game canvas; tap also = struggle when trapped */
   let lookId = null, lookLast = null;
-  // shared by the canvas drag and the SCOPE aim pad. sens scales with FOV, so
-  // scoping in (65 -> 20) makes the same finger travel move the crosshair less.
-  function applyLook(dx, dy){
-    const sens = camera.fov / BASE_FOV;
-    camYaw   -= dx * 0.006 * sens;
-    camPitch += dy * 0.005 * sens;
-    camPitch = Math.max(-0.15, Math.min(1.1, camPitch));
-  }
   canvas.addEventListener('touchstart', e=>{
     e.preventDefault();
     if(gameState !== 'play' && gameState !== 'drop') return;
@@ -784,7 +776,10 @@ if(IS_TOUCH){
     e.preventDefault();
     for(const t of e.changedTouches){
       if(t.identifier !== lookId || !lookLast) continue;
-      applyLook(t.clientX - lookLast.x, t.clientY - lookLast.y);
+      const sens = camera.fov / BASE_FOV;
+      camYaw   -= (t.clientX - lookLast.x) * 0.006 * sens;
+      camPitch += (t.clientY - lookLast.y) * 0.005 * sens;
+      camPitch = Math.max(-0.15, Math.min(1.1, camPitch));
       lookLast = {x:t.clientX, y:t.clientY};
     }
   }, {passive:false});
@@ -804,44 +799,12 @@ if(IS_TOUCH){
     }
   }
   bindBtn('btnFire',  ()=>{ touchFire = true; fireOnce(); }, ()=>{ touchFire = false; });
+  bindBtn('btnScope', ()=>{ touchZoom = true; }, ()=>{ touchZoom = false; });
   bindBtn('btnJump',  ()=>{ playerJumpOrStruggle(); });
   bindBtn('btnKick',  ()=>{
     const p = chars[0];
     if(p && p.alive && !p.trapped) tryKick(p);
   });
-  /* SCOPE is hold-to-zoom AND an aim pad: keep the thumb down and slide to steer.
-     A touch that starts on the button keeps firing its move/end events at the button
-     even after the finger leaves it, so the small 54px target is fine to drag off. */
-  const btnScope = el('btnScope');
-  let scopeId = null, scopeLast = null;
-  btnScope.addEventListener('touchstart', e=>{
-    e.preventDefault();
-    if(scopeId !== null) return;
-    const t = e.changedTouches[0];
-    scopeId = t.identifier;
-    scopeLast = {x:t.clientX, y:t.clientY};
-    touchZoom = true;
-    btnScope.classList.add('on');   // :active drops once the finger slides off
-  }, {passive:false});
-  btnScope.addEventListener('touchmove', e=>{
-    e.preventDefault();
-    for(const t of e.changedTouches){
-      if(t.identifier !== scopeId || !scopeLast) continue;
-      applyLook(t.clientX - scopeLast.x, t.clientY - scopeLast.y);
-      scopeLast = {x:t.clientX, y:t.clientY};
-    }
-  }, {passive:false});
-  const scopeEnd = e=>{
-    for(const t of e.changedTouches){
-      if(t.identifier !== scopeId) continue;
-      scopeId = null; scopeLast = null;
-      touchZoom = false;
-      btnScope.classList.remove('on');
-    }
-  };
-  btnScope.addEventListener('touchend', e=>{ e.preventDefault(); scopeEnd(e); }, {passive:false});
-  btnScope.addEventListener('touchcancel', scopeEnd);
-
   // crouch is a toggle on touch — no spare thumb to hold it
   el('btnCrouch').addEventListener('touchstart', e=>{
     e.preventDefault();
