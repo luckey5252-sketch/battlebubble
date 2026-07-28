@@ -19,8 +19,18 @@ Sending the raw `index.html` to a phone does NOT work — the game lives in `gam
 pulled in by a relative `<script src>`, so a lone HTML file renders the start screen and
 nothing else. Always use the live URL.
 
-Pages sends `Cache-Control: max-age=600`, so a phone can hold a stale `game.js` for ten
-minutes after a push. Bust it with `?v=2` on the URL or an incognito tab.
+Pages sends `Cache-Control: max-age=600`, so a phone can hold a stale copy for ten minutes
+after a push. **`?v=` on the page URL only refreshes `index.html`** — `game.js` has its own
+cache entry and stays stale, and a fresh-HTML/stale-JS pair crashes on the first missing
+element. That killed a phone test on 2026-07-29: the DEPLOY button went dead because the
+crash happened before `el('startBtn')` was bound at the bottom of `game.js`.
+
+Two guards now exist, but the first one is a manual step:
+
+- `index.html` loads `game.js?v=20260729a`. **Bump that string on every deploy** — it ties
+  the two files to one cache entry so they can never be out of sync.
+- Load errors now paint a red banner on screen (`showLoadError`, top of `game.js`) and the
+  whole touch-control setup runs in a `try`, so a broken control can't unbind DEPLOY.
 
 ## Files
 

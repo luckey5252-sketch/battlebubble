@@ -3,6 +3,22 @@
    ============================================================ */
 'use strict';
 
+/* A phone has no console, and this file binds the DEPLOY button near the very bottom —
+   so anything that throws during setup used to leave the start screen silently dead.
+   Surface the error on screen instead of guessing from across the room. */
+function showLoadError(msg){
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:999;'+
+    'background:#7a1f1f;color:#fff;font:11px/1.5 monospace;padding:8px 10px;'+
+    'white-space:pre-wrap;word-break:break-word;';
+  box.textContent = 'JS ERROR — ' + msg + '\n(tap to dismiss)';
+  box.addEventListener('click', ()=>box.remove());
+  (document.body || document.documentElement).appendChild(box);
+}
+addEventListener('error', e=>{
+  showLoadError((e.message || e.type) + '\n' + (e.filename||'') + ':' + (e.lineno||'?'));
+});
+
 /* ---------------- config ---------------- */
 const ISLAND_R   = 100;   // island radius
 const BOT_COUNT  = 9;
@@ -723,7 +739,8 @@ const touchMove = {x:0, y:0};   // virtual joystick vector (y = forward)
 let touchFire = false, touchZoom = false, touchCrouch = false, touchJump = false;
 let releaseStick = ()=>{};      // set below on touch devices; clears a stuck thumbstick
 
-if(IS_TOUCH){
+// `try` so a missing control element can never leave the DEPLOY button unbound
+if(IS_TOUCH) try{
   // touch-friendly instruction text
   el('struggleTxt').textContent = 'TRAPPED! TAP THE SCREEN TO STRUGGLE!';
   el('controlsBox').innerHTML =
@@ -847,6 +864,8 @@ if(IS_TOUCH){
     touchCrouch = !touchCrouch;
     el('btnCrouch').classList.toggle('on', touchCrouch);
   });
+}catch(err){
+  showLoadError('touch controls failed to init: ' + (err && err.message));
 }
 
 /* ---------------- movement helpers ---------------- */
