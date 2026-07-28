@@ -54,6 +54,15 @@ Two guards now exist, but the first one is a manual step:
 - Scope (RClick/Shift) switches to a first-person view at eye height, FOV 65 → 20,
   aim sensitivity scales with FOV, player model hidden so it doesn't fill the scope.
 - Shrinking magenta zone in 5 phases; touching it eliminates you.
+- **Music (2026-07-29):** no audio files — it is scheduled WebAudio off the same
+  `AudioContext` as the sfx, so there is nothing to download and nothing to license.
+  Four bars of Am–F–C–G on a 25ms lookahead scheduler (notes queued 0.15s ahead so a
+  frame hitch can't punch a hole in the beat). `musicIntensity()` picks one of four
+  layerings from game state: menu = pad + arpeggio at 84bpm, drop adds kick and bass,
+  the fight adds hats and snare, and the endgame (zone phase 3+ or ≤3 alive) piles on
+  at 126bpm. `endGame()` swaps the loop for a win/lose sting. Toggle with `M` or the
+  `#musicToggle` chip in the top-left HUD panel — the one tappable thing in the HUD.
+  Audio can't start before a user gesture, so the first pointerdown/touch/key latches it.
 - Full touch support, Roblox-style (2026-07-29): the left 46% of the screen is `#moveZone`,
   a **dynamic thumbstick** — the ring spawns wherever your thumb lands and slides along if you
   drag past its edge (52px radius, 7px deadzone); a dashed "home" ring hints at it while idle.

@@ -53,6 +53,12 @@
   #topLeft .logo{color:var(--accent);font-weight:700;letter-spacing:1px;}
   #aliveCount{color:var(--text);}
   #aliveCount b{color:var(--good);}
+  /* the only tappable thing in the HUD — everything else is pointer-events:none */
+  #musicToggle{color:var(--accent);cursor:pointer;pointer-events:auto;
+    display:inline-block;margin-top:2px;padding:1px 6px;border-radius:4px;
+    border:1px solid var(--border);font-size:11px;letter-spacing:.5px;
+    user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+  #musicToggle.off{color:var(--dim);}
   #zoneInfo{top:14px;left:50%;transform:translateX(-50%);color:var(--cyan);}
   #zoneInfo.warn{color:var(--zone);border-color:var(--zone);}
   #mapWrap{top:14px;right:14px;padding:8px;}
@@ -189,6 +195,7 @@
     <div><span class="k">F</span> kick a trapped enemy — pop!</div>
     <div><span class="k">SPACE</span> jump / mash to struggle when trapped</div>
     <div><span class="k">COVER</span> trees &amp; rocks block bubbles — hide behind them!</div>
+    <div><span class="k">M</span> music on / off</div>
   </div>
   <button id="startBtn" class="btn">&#9654; DEPLOY TO ISLAND</button>
   <div class="hint">bubble guns are scattered across the island — you land unarmed<br>
@@ -208,6 +215,7 @@
     <div class="logo">&#10035; BATTLE BUBBLE</div>
     <div id="aliveCount">ALIVE <b>10</b> / 10</div>
     <div id="stance">STANCE <b style="color:var(--dim)">STANDING</b></div>
+    <div id="musicToggle">&#9834; MUSIC ON</div>
   </div>
   <div id="zoneInfo" class="panel">ZONE STABLE</div>
   <div id="mapWrap" class="panel"><canvas id="minimap" width="140" height="140"></canvas></div>
@@ -249,6 +257,6 @@
 <!-- ?v= ties game.js to this page's cache entry: a phone can never end up running a
      stale game.js against fresh markup. BUMP THIS ON EVERY DEPLOY. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="game.js?v=20260729a"></script>
+<script src="game.js?v=20260729b"></script>
 </body>
 </html>

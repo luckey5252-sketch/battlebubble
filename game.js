@@ -71,6 +71,129 @@ const sKick   = ()=>{ sfx(110,0.12,'square',0.14,70); };
 const sPickup = ()=>{ sfx(520,0.08,'sine',0.10); setTimeout(()=>sfx(780,0.10,'sine',0.10),80); };
 const sZone   = ()=>{ sfx(220,0.25,'sine',0.12); setTimeout(()=>sfx(220,0.25,'sine',0.12),300); };
 
+/* ---------------- procedural music ----------------
+   No audio files — the soundtrack is scheduled WebAudio, same synth as the sfx above,
+   so it costs nothing to download and works with the CDN blocked. Notes are queued
+   ~0.15s ahead of the clock: a frame hitch on a phone can't punch a hole in the beat.
+   Four bars of Am - F - C - G; layers and tempo come in as the match heats up. */
+let musicOn = true, musicStarted = false, musicGain = null, musicTimer = null;
+let musicStep = 0, musicNext = 0, noiseBuf = null;
+
+const CHORDS = [
+  {root:110.00, tones:[220.00, 261.63, 329.63]}, // Am
+  {root: 87.31, tones:[174.61, 220.00, 261.63]}, // F
+  {root:130.81, tones:[261.63, 329.63, 392.00]}, // C
+  {root: 98.00, tones:[196.00, 246.94, 293.66]}, // G
+];
+const MUSIC_BPM = [84, 100, 112, 126];
+
+/* 0 menu · 1 dropping · 2 fighting · 3 endgame (small zone or few left) */
+function musicIntensity(){
+  if(gameState === 'drop') return 1;
+  if(gameState !== 'play') return 0;
+  return (zonePhaseIdx >= 3 || aliveCount() <= 3) ? 3 : 2;
+}
+
+function mtone(type, freq, t, dur, vol, opts){
+  opts = opts || {};
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if(opts.slideTo) o.frequency.exponentialRampToValueAtTime(opts.slideTo, t+dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + (opts.attack || 0.008));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(musicGain);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+function mnoise(t, dur, vol, hp){
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+  const g = AC.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(musicGain);
+  s.start(t); s.stop(t + dur);
+}
+
+function musicPlayStep(s, t, inten, spb){
+  const ch = CHORDS[Math.floor(s/8)], beat = s % 8;
+  if(beat === 0){                                   // pad, one soft swell per bar
+    mtone('triangle', ch.root*2,   t, spb*8, 0.030, {attack:0.35});
+    mtone('triangle', ch.tones[1], t, spb*8, 0.022, {attack:0.50});
+  }
+  // bubbly arpeggio — the one layer that never drops out
+  mtone('sine', ch.tones[s % 3] * (beat === 2 || beat === 6 ? 2 : 1),
+        t, spb*1.6, inten ? 0.075 : 0.050, {attack:0.012});
+  if(inten >= 1){
+    if(beat === 0 || beat === 4) mtone('sine', 120, t, 0.14, 0.50, {slideTo:45});
+    if(beat === 0 || beat === 3 || beat === 6) mtone('sawtooth', ch.root, t, spb*0.9, 0.09);
+  }
+  if(inten >= 2){
+    if(beat % 2 === 1) mnoise(t, 0.035, 0.055, 7000);
+    if(beat === 4)     mnoise(t, 0.12,  0.150, 1400);
+  }
+  if(inten >= 3){
+    if(beat === 7) mnoise(t, 0.05, 0.09, 5000);
+    mtone('square', ch.tones[2]*2, t, spb*0.45, 0.016);
+  }
+}
+
+function musicSchedule(){
+  if(!AC || !musicOn || !musicGain) return;
+  const inten = musicIntensity();
+  const spb = 60 / MUSIC_BPM[inten] / 2;   // one step = an eighth note
+  while(musicNext < AC.currentTime + 0.15){
+    try{ musicPlayStep(musicStep, Math.max(musicNext, AC.currentTime), inten, spb); }catch(e){}
+    musicNext += spb;
+    musicStep = (musicStep + 1) % 32;      // 4 bars x 8 steps
+  }
+}
+
+function musicStart(){
+  if(musicStarted || !musicOn) return;
+  try{
+    if(!AC) AC = new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state === 'suspended') AC.resume();
+    if(!noiseBuf){
+      noiseBuf = AC.createBuffer(1, Math.floor(AC.sampleRate*0.3), AC.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i] = Math.random()*2 - 1;
+    }
+    musicGain = AC.createGain();
+    musicGain.gain.value = 0.30;
+    musicGain.connect(AC.destination);
+    musicStep = 0;
+    musicNext = AC.currentTime + 0.10;
+    musicTimer = setInterval(musicSchedule, 25);
+    musicStarted = true;
+  }catch(e){}
+}
+function musicStop(){
+  clearInterval(musicTimer); musicTimer = null;
+  musicStarted = false;
+  const g = musicGain;
+  musicGain = null;                       // scheduler bails out immediately
+  if(g && AC){
+    try{
+      g.gain.setTargetAtTime(0.0001, AC.currentTime, 0.15);
+      setTimeout(()=>{ try{ g.disconnect(); }catch(e){} }, 900);
+    }catch(e){}
+  }
+}
+function toggleMusic(){
+  musicOn = !musicOn;
+  if(musicOn) musicStart(); else musicStop();
+  const b = el('musicToggle');
+  if(b){
+    b.textContent = musicOn ? '♪ MUSIC ON' : '♪ MUSIC OFF';
+    b.classList.toggle('off', !musicOn);
+  }
+}
+/* browsers won't let audio start before a gesture — latch onto the first one */
+['pointerdown','touchstart','keydown'].forEach(ev=>
+  addEventListener(ev, ()=>musicStart(), {once:true}));
+
 /* ---------------- three.js setup ---------------- */
 /* ?touch=1 forces the mobile control layout on a desktop, for checking the HUD */
 const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0
@@ -660,6 +783,7 @@ function fireOnce(){
 addEventListener('keydown', e=>{
   keys[e.code] = true;
   if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Space'].includes(e.code)) e.preventDefault();
+  if(e.code === 'KeyM') toggleMusic();   // works on any screen, not just in a match
   if(gameState !== 'play' && gameState !== 'drop') return;
   const p = chars[0];
   if(e.code === 'Space'){
@@ -751,7 +875,8 @@ if(IS_TOUCH) try{
     '<div><span class="k">KNEEL</span> tap to kneel — bubbles fly overhead!</div>'+
     '<div><span class="k">KICK</span> pop a trapped enemy up close</div>'+
     '<div><span class="k">&#8593; (CORNER)</span> jump — tap the screen fast to struggle when trapped</div>'+
-    '<div><span class="k">COVER</span> trees &amp; rocks block bubbles — hide!</div>';
+    '<div><span class="k">COVER</span> trees &amp; rocks block bubbles — hide!</div>'+
+    '<div><span class="k">&#9834; MUSIC</span> tap it in the top-left panel to mute</div>';
 
   /* dynamic thumbstick (Roblox style): touch anywhere in the left zone and the
      stick spawns under that thumb; it follows if you drag past the ring. */
@@ -1480,6 +1605,16 @@ function endGame(won, byName){
   // drop out of the scope so the final camera is the normal third-person view
   zoomHeld = touchZoom = touchFire = touchJump = false;
   releaseStick();
+  // hand the last few seconds over to a sting instead of the loop
+  musicStop();
+  if(won){
+    sfx(392,0.20,'triangle',0.14);
+    setTimeout(()=>sfx(523,0.20,'triangle',0.14), 170);
+    setTimeout(()=>sfx(659,0.55,'triangle',0.14), 340);
+  }else{
+    sfx(330,0.28,'triangle',0.12);
+    setTimeout(()=>sfx(247,0.55,'triangle',0.12), 220);
+  }
   camera.fov = BASE_FOV;
   camera.updateProjectionMatrix();
   el('crosshair').classList.remove('scope');
@@ -1501,6 +1636,7 @@ function endGame(won, byName){
   setTimeout(()=>el('endScreen').classList.remove('hidden'), won ? 1200 : 800);
 }
 
+el('musicToggle').addEventListener('click', toggleMusic);
 el('startBtn').addEventListener('click', startGame);
 el('restartBtn').addEventListener('click', ()=>location.reload());
 
