@@ -44,8 +44,13 @@ minutes after a push. Bust it with `?v=2` on the URL or an incognito tab.
 - Scope (RClick/Shift) switches to a first-person view at eye height, FOV 65 → 20,
   aim sensitivity scales with FOV, player model hidden so it doesn't fill the scope.
 - Shrinking magenta zone in 5 phases; touching it eliminates you.
-- Full touch support: virtual joystick, drag-to-look, FIRE/KICK/JUMP/SCOPE/KNEEL buttons,
-  tap-to-struggle. Auto-detected via `IS_TOUCH`; also lowers pixel ratio and shadow res.
+- Full touch support, Roblox-style (2026-07-29): the left 46% of the screen is `#moveZone`,
+  a **dynamic thumbstick** — the ring spawns wherever your thumb lands and slides along if you
+  drag past its edge (52px radius, 7px deadzone); a dashed "home" ring hints at it while idle.
+  The right side is drag-to-look. Buttons are round translucent-white discs: JUMP (arrow icon,
+  bottom-right corner, hold to keep hopping), FIRE (orange, primary), SCOPE / KICK / KNEEL on a
+  thumb arc above. `?touch=1` on the URL forces this layout on a desktop to check the layout.
+  Auto-detected via `IS_TOUCH`; also lowers pixel ratio and shadow res.
 
 ## Bugs already fixed (don't reintroduce)
 
@@ -98,10 +103,11 @@ below are blocked on the same thing: actually playing a few rounds on the phone.
 - **Playtest the difficulty.** The tuning table below has been lowered several times and
   *still* has never been confirmed playable. If it's too hard, cut `BOT_COUNT` from 9 or
   raise `PLAYER_GRACE`.
-- **Touch control feel is unvalidated.** Joystick position, button size and thumb reach,
-  look-drag sensitivity, framerate. The SCOPE button is 54px, which was already suspected of
-  being small. Needs a real verdict before guessing at changes — the scope aim pad above got
-  built on a guess and thrown away.
+- **Touch control feel is unvalidated.** The Roblox-style rework (dynamic thumbstick, 62px
+  action buttons, corner JUMP) has not been played on a phone yet — it replaced a fixed
+  124px joystick that was never validated either. Look-drag sensitivity and framerate are
+  still unmeasured. Needs a real verdict before guessing at changes — the scope aim pad above
+  got built on a guess and thrown away.
 - **No landscape / fullscreen handling.** Nothing calls `requestFullscreen()` and there's no
   orientation prompt. On a phone held portrait the 3D view is very cramped, and iOS Safari's
   address bar eats vertical space. Worth hooking fullscreen to the DEPLOY button and showing
