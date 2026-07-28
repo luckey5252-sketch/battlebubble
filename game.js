@@ -32,6 +32,7 @@ const PLAYER_GRACE = 35;  // bots ignore the player for this long after landing
 const AMMO_PER_GUN = 12;
 const GUN_COUNT  = 26;
 const PROJ_SPEED = 42;
+const PROJ_RISE  = 1.6;   // bubbles are buoyant — they drift up over the flight
 const KICK_RANGE = 3.6;
 
 const BOT_NAMES = ['BUBBLES','POPPER','FLOATY','SUDSY','FOAMY','GLOSSY','DRIFTER','SQUEAK','BOUNCER'];
@@ -740,6 +741,17 @@ function tryKick(kicker){
 const keys = {};
 let pointerLocked = false;
 let camYaw = 0, camPitch = 0.25;
+/* positive pitch looks down. the old range bottomed out at -0.15 and updateCamera
+   then floored it at 0.05 anyway, so the whole upward half was dead — scoping felt
+   like the vertical axis was broken. one clamp now, wide enough to aim uphill. */
+const PITCH_MIN = -0.60, PITCH_MAX = 1.00;
+/* scoping slows the aim, but not to a crawl — at full zoom this is 0.55, not 0.31 */
+function aimSens(){ return 0.35 + 0.65*(camera.fov/BASE_FOV); }
+function addLook(dYaw, dPitch){
+  const s = aimSens();
+  camYaw += dYaw*s;
+  camPitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, camPitch + dPitch*s));
+}
 
 function doStruggle(p){
   // shorten trap, jitter the bubble, enable dodge window
@@ -763,11 +775,51 @@ function playerJumpOrStruggle(){
   if(p.trapped) doStruggle(p);
   else playerJump();
 }
-/* where the crosshair is pointing, far out in front of the camera */
+/* What the crosshair is actually sitting on.
+
+   The old version aimed at a fixed 160m along the view ray. That ray slopes
+   downward, so the point was tens of metres underground and every shot dived into
+   the dirt a few metres out — the crosshair and the bubble disagreed. Now the ray
+   is intersected with the world and the muzzle is aimed at the *hit*, so what the
+   crosshair covers is what gets hit, at any range. */
+/* AIM_MIN keeps the aim point in front of the player: the third-person camera sits
+   ~9.5m behind him, so a steep look-down can meet the ground behind his heels. */
+const AIM_FAR = 220, AIM_MIN = 13;
 function crosshairAim(){
-  const d = new THREE.Vector3();
-  camera.getWorldDirection(d);
-  return {dir:d, point:camera.position.clone().addScaledVector(d, 160)};
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const eye = camera.position;
+
+  // how far the ray travels before it meets the ground
+  let dist = AIM_FAR;
+  if(dir.y < -1e-4){
+    const tg = -eye.y / dir.y;
+    if(tg > 1) dist = Math.min(dist, tg);
+  }
+
+  // an enemy under the crosshair wins over the ground behind them. the tolerance
+  // is a touch wider than the hitbox: thumbs on glass are not mice.
+  let best = null, bestAlong = Infinity;
+  for(const c of chars){
+    if(c.isPlayer || !c.alive || !c.landed) continue;
+    const centre = (c.trapped && c.bubble ? c.bubble.position : c.group.position)
+      .clone();
+    if(!c.trapped) centre.y += 1.7 - 0.85*(c.crouch || 0);
+    const to = centre.clone().sub(eye);
+    const along = to.dot(dir);
+    if(along < 3 || along > dist + 2 || along > bestAlong) continue;
+    const miss = centre.distanceTo(eye.clone().addScaledVector(dir, along));
+    if(miss < 1.4 + along*0.014){ best = centre; bestAlong = along; }
+  }
+
+  const point = best || eye.clone().addScaledVector(dir, Math.max(dist, AIM_MIN));
+
+  // A bubble floats upward on the way there, so aiming straight at the crosshair
+  // sails over anything far away — at 80m it clears a standing target by ~2.8m.
+  // Aim low by exactly the rise the flight will undo.
+  const flight = point.distanceTo(chars[0].group.position) / PROJ_SPEED;
+  point.y = Math.max(0.2, point.y - 0.5*PROJ_RISE*flight*flight);
+  return {dir, point};
 }
 function fireOnce(){
   const p = chars[0];
@@ -801,12 +853,10 @@ addEventListener('keyup', e=>{ keys[e.code] = false; });
 
 /* keyboard-only controls: arrows rotate camera, Enter fires (hold to auto-fire) */
 function updateKeyboardControls(dt){
-  const sens = camera.fov / BASE_FOV; // slower aim while scoped
-  if(keys['ArrowLeft'])  camYaw += 2.6*dt*sens;
-  if(keys['ArrowRight']) camYaw -= 2.6*dt*sens;
-  if(keys['ArrowUp'])    camPitch -= 1.6*dt*sens;
-  if(keys['ArrowDown'])  camPitch += 1.6*dt*sens;
-  camPitch = Math.max(-0.15, Math.min(1.1, camPitch));
+  if(keys['ArrowLeft'])  addLook( 2.6*dt, 0);
+  if(keys['ArrowRight']) addLook(-2.6*dt, 0);
+  if(keys['ArrowUp'])    addLook(0, -1.6*dt);
+  if(keys['ArrowDown'])  addLook(0,  1.6*dt);
 
   // holding JUMP keeps hopping, like Roblox (never auto-mashes the struggle)
   if(touchJump) playerJump();
@@ -852,10 +902,7 @@ function updateZoom(dt){
 
 addEventListener('mousemove', e=>{
   if(!pointerLocked) return;
-  const sens = camera.fov / BASE_FOV; // slower aim while scoped
-  camYaw   -= e.movementX * 0.0028 * sens;
-  camPitch += e.movementY * 0.0022 * sens;
-  camPitch = Math.max(-0.15, Math.min(1.1, camPitch));
+  addLook(-e.movementX * 0.0028, e.movementY * 0.0022);
 });
 
 /* ---------------- touch controls ---------------- */
@@ -953,10 +1000,8 @@ if(IS_TOUCH) try{
     e.preventDefault();
     for(const t of e.changedTouches){
       if(t.identifier !== lookId || !lookLast) continue;
-      const sens = camera.fov / BASE_FOV;
-      camYaw   -= (t.clientX - lookLast.x) * 0.006 * sens;
-      camPitch += (t.clientY - lookLast.y) * 0.005 * sens;
-      camPitch = Math.max(-0.15, Math.min(1.1, camPitch));
+      // vertical drag is a shorter travel than horizontal on a phone — match the feel
+      addLook(-(t.clientX - lookLast.x) * 0.006, (t.clientY - lookLast.y) * 0.0062);
       lookLast = {x:t.clientX, y:t.clientY};
     }
   }, {passive:false});
@@ -1193,6 +1238,8 @@ function updateChar(ch, dt){
       if(ch.isPlayer){
         gameState = 'play';
         zoneStarted = true;
+        // the drop looks down at the island; on the ground you want the horizon
+        camPitch = Math.min(camPitch, 0.12);
         showMessage('<span class="mark">GO!</span> FIND A BUBBLE GUN', 3000);
       }
     }
@@ -1343,7 +1390,7 @@ function updateProjectiles(dt){
   for(let i=projectiles.length-1;i>=0;i--){
     const pr = projectiles[i];
     pr.life -= dt;
-    pr.vel.y += 1.6*dt; // bubbles drift up slightly
+    pr.vel.y += PROJ_RISE*dt; // bubbles drift up slightly
     pr.mesh.position.addScaledVector(pr.vel, dt);
     pr.shell.rotation.y += dt*6;
 
@@ -1538,42 +1585,42 @@ function updateGuns(dt){
 }
 
 /* ---------------- camera ---------------- */
+/* One rig for both views. The camera always *looks along* the aim direction — third
+   person just pulls the eye back over the right shoulder, scoping slides it forward
+   onto the eye. Because the view direction and the aim direction are the same vector,
+   the crosshair never lies, and pitch behaves identically zoomed or not.
+
+   The old rig orbited the player and looked *at* his chest, so the view ray always
+   sloped into the ground past him and the upward half of the pitch range did nothing. */
 function updateCamera(){
   const p = chars[0];
   const target = p.trapped && p.bubble ? p.bubble.position.clone() : p.group.position.clone();
   camKick *= 0.86;
-  const cp = Math.max(0.05, camPitch - camKick);
+  const pitch = Math.max(PITCH_MIN, Math.min(PITCH_MAX, camPitch - camKick));
   const lift = p.trapped ? 0 : 1.05*(p.crouch||0);   // camera sinks with the kneel
   // how far into the scope we are, 0 = third person, 1 = down the sights
   const zoomT = p.trapped ? 0 : (BASE_FOV - camera.fov)/(BASE_FOV - ZOOM_FOV);
 
-  // third-person orbit
-  const D = p.landed ? 9.5 : 14;
-  const tpPos = new THREE.Vector3(
-    target.x + Math.sin(camYaw)*Math.cos(cp)*D,
-    Math.max(target.y + 2.5 - lift + Math.sin(cp)*D, 0.9),
-    target.z + Math.cos(camYaw)*Math.cos(cp)*D
+  const fwd = new THREE.Vector3(
+    -Math.sin(camYaw)*Math.cos(pitch),
+    -Math.sin(pitch),
+    -Math.cos(camYaw)*Math.cos(pitch)
   );
-  const look = new THREE.Vector3(target.x, target.y + 2.4 - lift, target.z);
+  const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+  const eye = new THREE.Vector3(target.x, target.y + 2.75 - lift, target.z);
 
-  if(zoomT > 0.001){
-    // scoped: sit at the eyes and aim straight down the barrel
-    const aimPitch = cp - 0.30;   // neutral pitch looks at the horizon, not the ground
-    const fwd = new THREE.Vector3(
-      -Math.sin(camYaw)*Math.cos(aimPitch),
-      -Math.sin(aimPitch),
-      -Math.cos(camYaw)*Math.cos(aimPitch)
-    );
-    const eye = new THREE.Vector3(target.x, target.y + 2.75 - lift, target.z)
-      .addScaledVector(fwd, 0.8);
-    tpPos.lerp(eye, zoomT);
-    look.lerp(eye.clone().addScaledVector(fwd, 60), zoomT);
-    // your own head would fill the scope otherwise
-    if(zoomT > 0.6 && p.alive) p.group.visible = false;
-  }
+  // third person: back along the aim ray, offset over the shoulder so the player's
+  // own body isn't parked under the crosshair. pull in a little when looking up so
+  // the camera doesn't scrape the ground behind him.
+  const D = (p.landed ? 9.5 : 14) * (1 - 0.30*Math.max(0, -pitch));
+  const tpPos = eye.clone().addScaledVector(fwd, -D).addScaledVector(right, 1.6);
+  tpPos.y = Math.max(tpPos.y + 0.5, 0.9);
 
-  camera.position.copy(tpPos);
-  camera.lookAt(look);
+  const fpPos = eye.clone().addScaledVector(fwd, 0.8);
+  camera.position.copy(tpPos).lerp(fpPos, zoomT);
+  camera.lookAt(camera.position.clone().addScaledVector(fwd, 100));
+  // your own head would fill the scope otherwise
+  if(zoomT > 0.6 && p.alive) p.group.visible = false;
 }
 
 /* ---------------- game flow ---------------- */
@@ -1588,6 +1635,8 @@ function startGame(){
   updateAliveHud();
   updateAmmoHud();
   gameState = 'drop';
+  camYaw = 0;
+  camPitch = 0.50;   // the camera aims where it looks now, so start tipped at the island
   if(IS_TOUCH){
     el('touchUI').classList.add('show');
     releaseStick();

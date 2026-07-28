@@ -53,6 +53,10 @@ Two guards now exist, but the first one is a manual step:
 - Kneel (C/Ctrl) drops and shrinks the hitbox so bubbles fly overhead; costs 45% speed.
 - Scope (RClick/Shift) switches to a first-person view at eye height, FOV 65 → 20,
   aim sensitivity scales with FOV, player model hidden so it doesn't fill the scope.
+- One camera rig for both views (`updateCamera`): the camera looks along the aim vector
+  and is *placed* from it, third person sitting 9.5m back and 1.6m over the right shoulder.
+  A soft aim snap in `crosshairAim()` favours an enemy within `1.4 + 0.014·range` metres of
+  the crosshair over the ground behind them — thumbs on glass are not mice.
 - Shrinking magenta zone in 5 phases; touching it eliminates you.
 - **Music (2026-07-29):** no audio files — it is scheduled WebAudio off the same
   `AudioContext` as the sfx, so there is nothing to download and nothing to license.
@@ -73,10 +77,23 @@ Two guards now exist, but the first one is a manual step:
 
 ## Bugs already fixed (don't reintroduce)
 
-- **Aim went into the ground.** The third-person camera looks *down* at the player, so
-  firing along `camera.getWorldDirection()` sent bubbles into the dirt a few metres ahead.
-  Fixed with `crosshairAim()`: take a point 160m along the view ray and aim the muzzle at
-  *that*. `shoot(ch, dir, aimPoint)` — bots pass `dir` only, the player passes both.
+- **Aim went into the ground** (real fix 2026-07-29). The first attempt aimed at a point
+  160m along the view ray, which only moved the problem: the old rig orbited the player and
+  called `camera.lookAt(player_chest)`, so the screen centre was *always* the player's own
+  body and the ray past him sloped into the dirt. The crosshair could not be placed on an
+  enemy at 30m+ at all. Now `updateCamera()` builds one `fwd` vector from (`camYaw`,
+  `camPitch`) and both **looks along it and positions from it** — third person pulls back
+  over the right shoulder, scoping slides onto the eye — so the view ray *is* the aim ray.
+  `crosshairAim()` then intersects that ray with the ground and the enemy hitboxes and
+  returns the real hit point. Do not go back to a fixed aim distance.
+- **Bubbles sailed over distant targets.** They are buoyant (`PROJ_RISE`), so a flat shot
+  climbs ~2.8m over 80m. `crosshairAim()` now drops the aim point by exactly the rise the
+  flight will undo. Both the aim and `updateProjectiles()` read the same `PROJ_RISE`.
+- **Scope had no vertical aim.** Pitch was clamped to `[-0.15, 1.1]` and then
+  `updateCamera()` floored it again at `0.05`, so the entire upward half of the range was
+  dead — dragging up did nothing. One clamp now, `[PITCH_MIN, PITCH_MAX]` = `[-0.6, 1.0]`,
+  applied in `addLook()` which every input path (keys, mouse, touch) goes through. Scoped
+  aim is 34° up / 57° down, was 14° up with a dead zone at the top.
 - **Scope looked broken.** FOV was changing but the camera stayed 9.5m behind, so it just
   magnified the player's own back. Fixed by lerping to a first-person eye position.
 - **Legs spun in circles when kneeling.** The idle pose decayed `rotation.x *= 0.8` while
