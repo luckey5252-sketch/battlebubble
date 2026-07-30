@@ -27,7 +27,7 @@ crash happened before `el('startBtn')` was bound at the bottom of `game.js`.
 
 Two guards now exist, but the first one is a manual step:
 
-- `index.html` loads `game.js?v=20260730a`. **Bump that string on every deploy** — it ties
+- `index.html` loads `game.js?v=20260730b`. **Bump that string on every deploy** — it ties
   the two files to one cache entry so they can never be out of sync.
 - Load errors now paint a red banner on screen (`showLoadError`, top of `game.js`) and the
   whole touch-control setup runs in a `try`, so a broken control can't unbind DEPLOY.
@@ -84,6 +84,14 @@ Two guards now exist, but the first one is a manual step:
   over the right shoulder, scoping slides onto the eye — so the view ray *is* the aim ray.
   `crosshairAim()` then intersects that ray with the ground and the enemy hitboxes and
   returns the real hit point. Do not go back to a fixed aim distance.
+- **HUD panels overlapped on a phone** (2026-07-30). `#ammoBox` was pinned at a hardcoded
+  `top:84px` on small screens, a number that only worked while `#topLeft` was three rows —
+  the MUSIC row made it four and the two panels collided. A centred `#zoneInfo` had the same
+  problem from the other side: at 360px the logo panel and the minimap already meet in the
+  middle. All three now sit in a `#leftCol` flex column (`position:static` inside it) on
+  small screens, so nothing depends on a guessed offset. Desktop is untouched — `#leftCol`
+  is a static wrapper there and its children stay absolute. **Don't reintroduce a
+  hardcoded `top:` for a panel whose height depends on its row count.**
 - **Bubbles sailed over distant targets.** They are buoyant (`PROJ_RISE`), so a flat shot
   climbs ~2.8m over 80m. `crosshairAim()` now drops the aim point by exactly the rise the
   flight will undo. Both the aim and `updateProjectiles()` read the same `PROJ_RISE`.

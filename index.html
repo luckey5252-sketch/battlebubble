@@ -135,13 +135,20 @@
     .box .k{min-width:96px;}
     .btn{padding:12px 26px;font-size:14px;}
     .panel{font-size:11px;padding:6px 10px;}
-    #topLeft{top:8px;left:8px;line-height:1.6;}
-    #zoneInfo{top:8px;}
+    /* The ammo panel used to sit at a hardcoded top:84px, which assumed a
+       three-row #topLeft — adding the MUSIC row made the two overlap. And a
+       centred ZONE panel has nowhere to go on a 360px screen: the logo panel
+       and the minimap already meet in the middle. So on a phone all three
+       stack in flow down the left edge and no offset has to be guessed. */
+    #leftCol{position:absolute;top:8px;left:8px;display:flex;
+      flex-direction:column;align-items:flex-start;gap:6px;max-width:62vw;}
+    #topLeft, #ammoBox, #zoneInfo{position:static;transform:none;}
+    #topLeft{line-height:1.6;}
     #mapWrap{top:8px;right:8px;padding:5px;}
     #minimap{width:88px;height:88px;}
     #killfeed{top:118px;right:8px;}
     .feed{font-size:10px;padding:4px 8px;}
-    #ammoBox{bottom:auto;top:84px;left:8px;font-size:12px;}
+    #ammoBox{font-size:12px;}
     #ammoBox .val{font-size:15px;}
     #controlsHint{display:none;}
     #message{font-size:17px;white-space:normal;text-align:center;max-width:86vw;}
@@ -187,19 +194,23 @@
 
 <!-- ===== HUD ===== -->
 <div id="hud" class="hidden">
-  <div id="topLeft" class="panel">
-    <div class="logo">&#10035; BATTLE BUBBLE</div>
-    <div id="aliveCount">ALIVE <b>10</b> / 10</div>
-    <div id="stance">STANCE <b style="color:var(--dim)">STANDING</b></div>
-    <div id="musicToggle">&#9834; MUSIC ON</div>
+  <!-- #leftCol only does something on a phone, where it stacks these two panels in
+       flow. On a desktop it is a static wrapper and both children stay absolute. -->
+  <div id="leftCol">
+    <div id="topLeft" class="panel">
+      <div class="logo">&#10035; BATTLE BUBBLE</div>
+      <div id="aliveCount">ALIVE <b>10</b> / 10</div>
+      <div id="stance">STANCE <b style="color:var(--dim)">STANDING</b></div>
+      <div id="musicToggle">&#9834; MUSIC ON</div>
+    </div>
+    <div id="zoneInfo" class="panel">ZONE STABLE</div>
+    <div id="ammoBox" class="panel">
+      <span class="lbl">BUBBLE GUN</span>
+      <span id="ammoVal" class="val none">UNARMED — FIND A GUN</span>
+    </div>
   </div>
-  <div id="zoneInfo" class="panel">ZONE STABLE</div>
   <div id="mapWrap" class="panel"><canvas id="minimap" width="140" height="140"></canvas></div>
   <div id="killfeed"></div>
-  <div id="ammoBox" class="panel">
-    <span class="lbl">BUBBLE GUN</span>
-    <span id="ammoVal" class="val none">UNARMED — FIND A GUN</span>
-  </div>
   <div id="controlsHint" class="panel">
     <span>CLICK/ENTER</span> shoot &nbsp;&#183;&nbsp; <span>SHIFT</span> scope<br>
     <span>C</span> kneel (dodge bubbles) &nbsp;&#183;&nbsp; <span>F</span> kick<br>
@@ -226,6 +237,6 @@
 <!-- ?v= ties game.js to this page's cache entry: a phone can never end up running a
      stale game.js against fresh markup. BUMP THIS ON EVERY DEPLOY. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="game.js?v=20260730a"></script>
+<script src="game.js?v=20260730b"></script>
 </body>
 </html>
