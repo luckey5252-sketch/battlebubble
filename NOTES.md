@@ -27,7 +27,7 @@ crash happened before `el('startBtn')` was bound at the bottom of `game.js`.
 
 Two guards now exist, but the first one is a manual step:
 
-- `index.html` loads `game.js?v=20260729a`. **Bump that string on every deploy** — it ties
+- `index.html` loads `game.js?v=20260730a`. **Bump that string on every deploy** — it ties
   the two files to one cache entry so they can never be out of sync.
 - Load errors now paint a red banner on screen (`showLoadError`, top of `game.js`) and the
   whole touch-control setup runs in a `try`, so a broken control can't unbind DEPLOY.
@@ -67,13 +67,11 @@ Two guards now exist, but the first one is a manual step:
   at 126bpm. `endGame()` swaps the loop for a win/lose sting. Toggle with `M` or the
   `#musicToggle` chip in the top-left HUD panel — the one tappable thing in the HUD.
   Audio can't start before a user gesture, so the first pointerdown/touch/key latches it.
-- Full touch support, Roblox-style (2026-07-29): the left 46% of the screen is `#moveZone`,
-  a **dynamic thumbstick** — the ring spawns wherever your thumb lands and slides along if you
-  drag past its edge (52px radius, 7px deadzone); a dashed "home" ring hints at it while idle.
-  The right side is drag-to-look. Buttons are round translucent-white discs: JUMP (arrow icon,
-  bottom-right corner, hold to keep hopping), FIRE (orange, primary), SCOPE / KICK / KNEEL on a
-  thumb arc above. `?touch=1` on the URL forces this layout on a desktop to check the layout.
-  Auto-detected via `IS_TOUCH`; also lowers pixel ratio and shadow res.
+- Full touch support: fixed 124px virtual joystick bottom-left, drag-to-look on the canvas,
+  FIRE/KICK/JUMP/SCOPE/KNEEL buttons, tap-to-struggle. Auto-detected via `IS_TOUCH`
+  (`?touch=1` forces it on a desktop); also lowers pixel ratio and shadow res.
+  The Roblox-style dynamic thumbstick that replaced this on 2026-07-29 was reverted on
+  2026-07-30 — the fixed stick is the layout we want. See "Tried and rejected" below.
 
 ## Bugs already fixed (don't reintroduce)
 
@@ -112,6 +110,15 @@ Two guards now exist, but the first one is a manual step:
   now byte-identical to the pre-attempt version. If scope ergonomics come up again, the thing
   to question is the zoom depth (FOV 65 → 20) or making SCOPE a toggle like KNEEL, **not**
   merging aim into the button.
+- **Roblox-style touch layout** (`db11ab4`, reverted 2026-07-30). The fixed joystick was
+  replaced by a dynamic thumbstick over the left 46% of the screen (ring spawns under the
+  thumb, follows it past the edge), round translucent-white buttons with a `.press` state,
+  JUMP moved to the bottom-right corner with hold-to-hop, and KNEEL moved to the right
+  cluster. The player tried it on a phone and asked for the previous scheme back, so the
+  touch UI is again the fixed 124px `#joyBase` bottom-left, accent-outlined dark buttons,
+  and KNEEL at `left:166px`. Kept from that commit: `?touch=1` (desktop test flag) and
+  clearing `touchFire` in `endGame()`. Dropped with it: `playerJump()` / `touchJump`, so
+  JUMP is a tap again and can't repeat while held.
 
 ## Current difficulty tuning
 
@@ -139,11 +146,10 @@ below are blocked on the same thing: actually playing a few rounds on the phone.
 - **Playtest the difficulty.** The tuning table below has been lowered several times and
   *still* has never been confirmed playable. If it's too hard, cut `BOT_COUNT` from 9 or
   raise `PLAYER_GRACE`.
-- **Touch control feel is unvalidated.** The Roblox-style rework (dynamic thumbstick, 62px
-  action buttons, corner JUMP) has not been played on a phone yet — it replaced a fixed
-  124px joystick that was never validated either. Look-drag sensitivity and framerate are
-  still unmeasured. Needs a real verdict before guessing at changes — the scope aim pad above
-  got built on a guess and thrown away.
+- **Touch control feel is unvalidated.** Joystick position, button size and thumb reach,
+  look-drag sensitivity, framerate. The SCOPE button is 54px, which was already suspected of
+  being small. Needs a real verdict before guessing at changes — the scope aim pad above got
+  built on a guess and thrown away.
 - **No landscape / fullscreen handling.** Nothing calls `requestFullscreen()` and there's no
   orientation prompt. On a phone held portrait the 3D view is very cramped, and iOS Safari's
   address bar eats vertical space. Worth hooking fullscreen to the DEPLOY button and showing

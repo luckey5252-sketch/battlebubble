@@ -764,16 +764,11 @@ function doStruggle(p){
   }
   sfx(400+Math.random()*200, 0.05, 'sine', 0.05);
 }
-function playerJump(){
-  const p = chars[0];
-  if(!p || !p.alive || p.trapped) return;
-  if(p.landed && p.group.position.y <= 0.01) p.vel.y = 12.5;
-}
 function playerJumpOrStruggle(){
   const p = chars[0];
   if(!p || !p.alive) return;
   if(p.trapped) doStruggle(p);
-  else playerJump();
+  else if(p.landed && p.group.position.y <= 0.01) p.vel.y = 12.5;
 }
 /* What the crosshair is actually sitting on.
 
@@ -858,9 +853,6 @@ function updateKeyboardControls(dt){
   if(keys['ArrowUp'])    addLook(0, -1.6*dt);
   if(keys['ArrowDown'])  addLook(0,  1.6*dt);
 
-  // holding JUMP keeps hopping, like Roblox (never auto-mashes the struggle)
-  if(touchJump) playerJump();
-
   if(keys['Enter'] || touchFire){
     const p = chars[0];
     if(p.alive && !p.trapped && p.ammo > 0 && p.shootCd <= 0){
@@ -907,81 +899,56 @@ addEventListener('mousemove', e=>{
 
 /* ---------------- touch controls ---------------- */
 const touchMove = {x:0, y:0};   // virtual joystick vector (y = forward)
-let touchFire = false, touchZoom = false, touchCrouch = false, touchJump = false;
-let releaseStick = ()=>{};      // set below on touch devices; clears a stuck thumbstick
+let touchFire = false, touchZoom = false, touchCrouch = false;
 
 // `try` so a missing control element can never leave the DEPLOY button unbound
 if(IS_TOUCH) try{
   // touch-friendly instruction text
   el('struggleTxt').textContent = 'TRAPPED! TAP THE SCREEN TO STRUGGLE!';
   el('controlsBox').innerHTML =
-    '<div><span class="k">LEFT SIDE</span> drag anywhere to move — the stick follows your thumb</div>'+
-    '<div><span class="k">RIGHT SIDE</span> drag to look around</div>'+
+    '<div><span class="k">JOYSTICK</span> move (steer while dropping)</div>'+
+    '<div><span class="k">DRAG SCREEN</span> look around</div>'+
     '<div><span class="k">FIRE</span> hold to auto-fire the bubble gun</div>'+
     '<div><span class="k">SCOPE</span> hold to zoom — snipe far enemies</div>'+
     '<div><span class="k">KNEEL</span> tap to kneel — bubbles fly overhead!</div>'+
     '<div><span class="k">KICK</span> pop a trapped enemy up close</div>'+
-    '<div><span class="k">&#8593; (CORNER)</span> jump — tap the screen fast to struggle when trapped</div>'+
+    '<div><span class="k">JUMP / TAP</span> jump — tap fast to struggle when trapped</div>'+
     '<div><span class="k">COVER</span> trees &amp; rocks block bubbles — hide!</div>'+
     '<div><span class="k">&#9834; MUSIC</span> tap it in the top-left panel to mute</div>';
 
-  /* dynamic thumbstick (Roblox style): touch anywhere in the left zone and the
-     stick spawns under that thumb; it follows if you drag past the ring. */
-  const moveZone = el('moveZone'), joy = el('joy'), joyDot = el('joyDot');
-  const JOY_MAX = 52, JOY_DEAD = 7;
-  let joyId = null, joyCx = 0, joyCy = 0, zoneRect = null;
+  const joyBase = el('joyBase'), joyKnob = el('joyKnob');
+  let joyId = null;
 
-  function joyPlace(x, y){
-    joyCx = x; joyCy = y;
-    joy.style.transform =
-      'translate('+(x - zoneRect.left)+'px,'+(y - zoneRect.top)+'px)';
-  }
   function joyUpdate(t){
-    let dx = t.clientX - joyCx, dy = t.clientY - joyCy;
+    const r = joyBase.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    let dx = t.clientX - cx, dy = t.clientY - cy;
+    const max = r.width/2;
     const len = Math.hypot(dx, dy);
-    if(len > JOY_MAX){
-      // drag the stick along with the thumb instead of pinning it — feels like Roblox
-      joyPlace(t.clientX - dx*JOY_MAX/len, t.clientY - dy*JOY_MAX/len);
-      dx *= JOY_MAX/len; dy *= JOY_MAX/len;
-    }
-    const mag = Math.hypot(dx, dy);
-    if(mag < JOY_DEAD){
-      touchMove.x = 0; touchMove.y = 0;
-    }else{
-      touchMove.x = dx/JOY_MAX;
-      touchMove.y = -dy/JOY_MAX;
-    }
-    joyDot.style.transform = 'translate('+dx+'px,'+dy+'px)';
+    if(len > max){ dx *= max/len; dy *= max/len; }
+    touchMove.x = dx/max;
+    touchMove.y = -dy/max;
+    joyKnob.style.transform = 'translate('+dx+'px,'+dy+'px)';
   }
   function joyReset(){
     joyId = null;
     touchMove.x = 0; touchMove.y = 0;
-    joyDot.style.transform = '';
-    moveZone.classList.remove('active');
+    joyKnob.style.transform = '';
   }
-  moveZone.addEventListener('touchstart', e=>{
+  joyBase.addEventListener('touchstart', e=>{
     e.preventDefault();
-    if(gameState === 'play' || gameState === 'drop'){
-      const p = chars[0];
-      if(p && p.alive && p.trapped) doStruggle(p); // mashing works on this side too
-    }
-    if(joyId !== null) return;
     const t = e.changedTouches[0];
     joyId = t.identifier;
-    zoneRect = moveZone.getBoundingClientRect(); // cached: no layout read while dragging
-    joyPlace(t.clientX, t.clientY);
-    moveZone.classList.add('active');
     joyUpdate(t);
   }, {passive:false});
-  moveZone.addEventListener('touchmove', e=>{
+  joyBase.addEventListener('touchmove', e=>{
     e.preventDefault();
     for(const t of e.changedTouches) if(t.identifier === joyId) joyUpdate(t);
   }, {passive:false});
-  moveZone.addEventListener('touchend', e=>{
+  joyBase.addEventListener('touchend', e=>{
     for(const t of e.changedTouches) if(t.identifier === joyId) joyReset();
   });
-  moveZone.addEventListener('touchcancel', joyReset);
-  releaseStick = joyReset;
+  joyBase.addEventListener('touchcancel', joyReset);
 
   /* look: drag anywhere on the game canvas; tap also = struggle when trapped */
   let lookId = null, lookLast = null;
@@ -1014,26 +981,25 @@ if(IS_TOUCH) try{
   /* buttons */
   function bindBtn(id, down, up){
     const b = el(id);
-    const release = e=>{ if(e) e.preventDefault(); b.classList.remove('press'); if(up) up(); };
-    b.addEventListener('touchstart', e=>{
-      e.preventDefault(); b.classList.add('press'); down();
-    }, {passive:false});
-    b.addEventListener('touchend', release, {passive:false});
-    b.addEventListener('touchcancel', release);
+    b.addEventListener('touchstart', e=>{ e.preventDefault(); down(); }, {passive:false});
+    if(up){
+      b.addEventListener('touchend', e=>{ e.preventDefault(); up(); }, {passive:false});
+      b.addEventListener('touchcancel', up);
+    }
   }
   bindBtn('btnFire',  ()=>{ touchFire = true; fireOnce(); }, ()=>{ touchFire = false; });
   bindBtn('btnScope', ()=>{ touchZoom = true; }, ()=>{ touchZoom = false; });
-  bindBtn('btnJump',  ()=>{ touchJump = true; playerJumpOrStruggle(); },
-                      ()=>{ touchJump = false; });
+  bindBtn('btnJump',  ()=>{ playerJumpOrStruggle(); });
   bindBtn('btnKick',  ()=>{
     const p = chars[0];
     if(p && p.alive && !p.trapped) tryKick(p);
   });
   // crouch is a toggle on touch — no spare thumb to hold it
-  bindBtn('btnCrouch', ()=>{
+  el('btnCrouch').addEventListener('touchstart', e=>{
+    e.preventDefault();
     touchCrouch = !touchCrouch;
     el('btnCrouch').classList.toggle('on', touchCrouch);
-  });
+  }, {passive:false});
 }catch(err){
   showLoadError('touch controls failed to init: ' + (err && err.message));
 }
@@ -1639,8 +1605,7 @@ function startGame(){
   camPitch = 0.50;   // the camera aims where it looks now, so start tipped at the island
   if(IS_TOUCH){
     el('touchUI').classList.add('show');
-    releaseStick();
-    showMessage('STEER YOUR BUBBLE — <span class="mark">DRAG THE LEFT SIDE</span>', 3500);
+    showMessage('STEER YOUR BUBBLE WITH THE <span class="mark">JOYSTICK</span>', 3500);
   }else{
     canvas.requestPointerLock();
     showMessage('STEER YOUR BUBBLE WITH <span class="mark">WASD</span>', 3500);
@@ -1652,8 +1617,7 @@ function endGame(won, byName){
   gameState = 'end';
   document.exitPointerLock();
   // drop out of the scope so the final camera is the normal third-person view
-  zoomHeld = touchZoom = touchFire = touchJump = false;
-  releaseStick();
+  zoomHeld = touchZoom = touchFire = false;
   // hand the last few seconds over to a sting instead of the loop
   musicStop();
   if(won){

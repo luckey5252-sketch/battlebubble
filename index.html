@@ -104,52 +104,28 @@
   #crosshair.scope::before{left:30px;top:4px;width:2px;height:56px;background:var(--accent);}
   #crosshair.scope::after{top:30px;left:4px;width:56px;height:2px;background:var(--accent);}
 
-  /* ---------- touch controls (Roblox-style) ---------- */
+  /* ---------- touch controls ---------- */
   #touchUI{position:fixed;inset:0;z-index:20;pointer-events:none;display:none;}
   #touchUI.show{display:block;}
-
-  /* left half = movement zone. the stick spawns under your thumb, wherever it lands */
-  #moveZone{position:absolute;left:0;bottom:0;width:46%;max-width:480px;height:80%;
-    pointer-events:auto;touch-action:none;-webkit-tap-highlight-color:transparent;}
-  /* resting hint ring, like the Roblox dynamic thumbstick */
-  #joyHome{position:absolute;left:24px;bottom:24px;width:96px;height:96px;
-    border-radius:50%;border:2px dashed rgba(255,255,255,0.30);
-    opacity:1;transition:opacity .15s;}
-  #joyHome::after{content:"";position:absolute;left:50%;top:50%;width:34px;height:34px;
-    margin:-17px 0 0 -17px;border-radius:50%;background:rgba(255,255,255,0.22);}
-  #moveZone.active #joyHome{opacity:0;}
-  #joy{position:absolute;left:0;top:0;width:0;height:0;opacity:0;
-    transition:opacity .12s;will-change:transform;}
-  #moveZone.active #joy{opacity:1;}
-  #joyRing{position:absolute;left:-56px;top:-56px;width:112px;height:112px;
-    border-radius:50%;border:2px solid rgba(255,255,255,0.55);
-    background:rgba(255,255,255,0.10);box-shadow:0 2px 14px rgba(0,0,0,.35);}
-  #joyDot{position:absolute;left:-27px;top:-27px;width:54px;height:54px;
-    border-radius:50%;background:rgba(255,255,255,0.72);
-    border:2px solid rgba(255,255,255,0.95);box-shadow:0 2px 10px rgba(0,0,0,.45);
-    will-change:transform;}
-
-  .tbtn{position:absolute;border-radius:50%;
-    background:rgba(255,255,255,0.18);border:2px solid rgba(255,255,255,0.55);
-    color:#fff;font-family:inherit;font-weight:700;letter-spacing:0.5px;
-    text-shadow:0 1px 3px rgba(0,0,0,.65);
-    box-shadow:0 2px 10px rgba(0,0,0,.35);
-    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+  #joyBase{position:absolute;left:22px;bottom:88px;width:124px;height:124px;
+    border:1.5px solid var(--border);border-radius:50%;
+    background:rgba(31,30,29,0.5);pointer-events:auto;touch-action:none;}
+  #joyKnob{position:absolute;left:39px;top:39px;width:46px;height:46px;
+    border-radius:50%;background:rgba(217,119,87,0.85);
+    box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .tbtn{position:absolute;border-radius:50%;background:rgba(31,30,29,0.65);
+    border:1.5px solid var(--accent);color:var(--accent);
+    font-family:inherit;font-weight:700;letter-spacing:0.5px;
     pointer-events:auto;touch-action:none;display:flex;align-items:center;
     justify-content:center;user-select:none;-webkit-user-select:none;
-    -webkit-tap-highlight-color:transparent;
-    transition:transform .06s ease-out, background .06s;}
-  .tbtn.press{background:rgba(255,255,255,0.45);transform:scale(0.92);}
-  .tbtn.on{background:rgba(217,119,87,0.80);border-color:#fff;}
-  .tbtn svg{display:block;}
-  /* right-hand cluster: JUMP in the corner (Roblox), the rest on a thumb arc */
-  #btnJump{right:16px;bottom:16px;width:84px;height:84px;}
-  #btnFire{right:108px;bottom:40px;width:92px;height:92px;font-size:14px;
-    background:rgba(217,119,87,0.42);border-color:rgba(255,255,255,0.75);}
-  #btnFire.press{background:rgba(217,119,87,0.85);}
-  #btnScope{right:24px;bottom:112px;width:62px;height:62px;font-size:10px;}
-  #btnKick{right:120px;bottom:144px;width:62px;height:62px;font-size:11px;}
-  #btnCrouch{right:24px;bottom:184px;width:62px;height:62px;font-size:10px;}
+    -webkit-tap-highlight-color:transparent;}
+  .tbtn:active{background:rgba(217,119,87,0.35);}
+  #btnFire{right:24px;bottom:92px;width:88px;height:88px;font-size:14px;}
+  #btnKick{right:126px;bottom:62px;width:62px;height:62px;font-size:12px;}
+  #btnJump{right:42px;bottom:198px;width:62px;height:62px;font-size:12px;}
+  #btnScope{right:140px;bottom:152px;width:54px;height:54px;font-size:10px;}
+  #btnCrouch{left:166px;bottom:96px;width:62px;height:62px;font-size:11px;}
+  .tbtn.on{background:rgba(217,119,87,0.75);color:#1a1917;}
 
   /* ---------- small screens ---------- */
   @media (pointer:coarse), (max-width:820px){
@@ -239,15 +215,8 @@
 
 <!-- ===== touch controls (shown on touch devices) ===== -->
 <div id="touchUI">
-  <div id="moveZone">
-    <div id="joyHome"></div>
-    <div id="joy"><div id="joyRing"></div><div id="joyDot"></div></div>
-  </div>
-  <button id="btnJump" class="tbtn" aria-label="jump">
-    <svg viewBox="0 0 24 24" width="38" height="38" fill="#fff">
-      <path d="M12 3.5 3.2 13.4h5v7.1h7.6v-7.1h5z"/>
-    </svg>
-  </button>
+  <div id="joyBase"><div id="joyKnob"></div></div>
+  <button id="btnJump" class="tbtn">JUMP</button>
   <button id="btnScope" class="tbtn">SCOPE</button>
   <button id="btnKick" class="tbtn">KICK</button>
   <button id="btnCrouch" class="tbtn">KNEEL</button>
@@ -257,6 +226,6 @@
 <!-- ?v= ties game.js to this page's cache entry: a phone can never end up running a
      stale game.js against fresh markup. BUMP THIS ON EVERY DEPLOY. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="game.js?v=20260729c"></script>
+<script src="game.js?v=20260730a"></script>
 </body>
 </html>
