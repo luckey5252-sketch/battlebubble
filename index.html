@@ -124,7 +124,11 @@
   #btnKick{right:126px;bottom:62px;width:62px;height:62px;font-size:12px;}
   #btnJump{right:42px;bottom:198px;width:62px;height:62px;font-size:12px;}
   #btnScope{right:140px;bottom:152px;width:54px;height:54px;font-size:10px;}
-  #btnCrouch{left:166px;bottom:96px;width:62px;height:62px;font-size:11px;}
+  /* KNEEL sits above the joystick, not to the right of it: at left:166px it ran into
+     KICK (right:126px) on anything narrower than 416px — 26px of overlap on a 390px
+     phone. Stacked over the stick it only ever moves up, so no width can close the gap.
+     Centred on the stick (22 + 124/2 - 62/2 = 53) with 12px of clearance above it. */
+  #btnCrouch{left:53px;bottom:224px;width:62px;height:62px;font-size:11px;}
   .tbtn.on{background:rgba(217,119,87,0.75);color:#1a1917;}
 
   /* ---------- small screens ---------- */
@@ -237,6 +241,6 @@
 <!-- ?v= ties game.js to this page's cache entry: a phone can never end up running a
      stale game.js against fresh markup. BUMP THIS ON EVERY DEPLOY. -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="game.js?v=20260730b"></script>
+<script src="game.js?v=20260730c"></script>
 </body>
 </html>

@@ -27,7 +27,7 @@ crash happened before `el('startBtn')` was bound at the bottom of `game.js`.
 
 Two guards now exist, but the first one is a manual step:
 
-- `index.html` loads `game.js?v=20260730b`. **Bump that string on every deploy** — it ties
+- `index.html` loads `game.js?v=20260730c`. **Bump that string on every deploy** — it ties
   the two files to one cache entry so they can never be out of sync.
 - Load errors now paint a red banner on screen (`showLoadError`, top of `game.js`) and the
   whole touch-control setup runs in a `try`, so a broken control can't unbind DEPLOY.
@@ -67,8 +67,8 @@ Two guards now exist, but the first one is a manual step:
   at 126bpm. `endGame()` swaps the loop for a win/lose sting. Toggle with `M` or the
   `#musicToggle` chip in the top-left HUD panel — the one tappable thing in the HUD.
   Audio can't start before a user gesture, so the first pointerdown/touch/key latches it.
-- Full touch support: fixed 124px virtual joystick bottom-left, drag-to-look on the canvas,
-  FIRE/KICK/JUMP/SCOPE/KNEEL buttons, tap-to-struggle. Auto-detected via `IS_TOUCH`
+- Full touch support: fixed 124px virtual joystick bottom-left with KNEEL stacked above it,
+  drag-to-look on the canvas, FIRE/KICK/JUMP/SCOPE on the right, tap-to-struggle. Auto-detected via `IS_TOUCH`
   (`?touch=1` forces it on a desktop); also lowers pixel ratio and shadow res.
   The Roblox-style dynamic thumbstick that replaced this on 2026-07-29 was reverted on
   2026-07-30 — the fixed stick is the layout we want. See "Tried and rejected" below.
@@ -92,6 +92,15 @@ Two guards now exist, but the first one is a manual step:
   small screens, so nothing depends on a guessed offset. Desktop is untouched — `#leftCol`
   is a static wrapper there and its children stay absolute. **Don't reintroduce a
   hardcoded `top:` for a panel whose height depends on its row count.**
+- **KNEEL ran into KICK on a normal phone** (2026-07-30). KNEEL was anchored `left:166px`
+  and KICK `right:126px`, so they met on anything narrower than 416px — 26px of overlap at
+  390, 56px at 360, and KNEEL clipped SCOPE too. Only a 430px screen was ever wide enough.
+  KNEEL now sits *above* the joystick (`left:53px` centres it on the 124px stick,
+  `bottom:224px` clears it by 12px): stacking only moves it up, so no width can close the
+  gap. Measured 0 overlapping pairs at 360, 390 and 430. **Two buttons anchored to opposite
+  edges will always collide at some width — stack them instead.**
+  Known limit: at 320px the joystick itself reaches KICK/SCOPE. Not fixed — no phone that
+  narrow is in use here, and fixing it means shrinking the whole right cluster.
 - **Bubbles sailed over distant targets.** They are buoyant (`PROJ_RISE`), so a flat shot
   climbs ~2.8m over 80m. `crosshairAim()` now drops the aim point by exactly the rise the
   flight will undo. Both the aim and `updateProjectiles()` read the same `PROJ_RISE`.
